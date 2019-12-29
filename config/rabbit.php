@@ -18,10 +18,17 @@ return [
 
     'queues' => [
         [
-            'name' => 'hello'
+            'name' => 'hello',
+            'arguments' => [
+                'x-ha-policy' => 'nodes',
+                'x-ha-policy-params' => ['rabbit@master', 'rabbit@slave']
+            ]
         ],
         [
-            'name' => 'emails'
+            'name' => 'emails',
+            'arguments' => [
+                'x-ha-policy' => 'all'
+            ]
         ]
     ],
 

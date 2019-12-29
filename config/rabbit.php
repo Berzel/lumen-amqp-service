@@ -54,8 +54,6 @@ return [
                 ]);
 
                 app('amqp')->publish($message, 'app.emails');
-
-                usleep(2000000);
                 $subChannel->basic_ack($msg->getDeliveryTag());
             }
         ],

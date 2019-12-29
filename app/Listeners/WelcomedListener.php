@@ -41,6 +41,6 @@ class WelcomedListener implements ShouldQueue
             'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT
         ]);
 
-        app(AMQPService::class)->publish($message, 'app.hello');
+        app('amqp')->publish($message, 'app.hello');
     }
 }

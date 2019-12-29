@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\Welcomed;
+use App\Services\AMQPService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use PhpAmqpLib\Channel\AMQPChannel;
@@ -34,29 +35,12 @@ class WelcomedListener implements ShouldQueue
      */
     public function handle(Welcomed $event)
     {
-        $ackCallback = function (AMQPMessage $msg) {
-            $msg = json_decode($msg->getBody())->message;
-            fprintf(STDOUT, "<--Acknowledged-->\n");
-        };
-
-        $nackCallback = function (AMQPMessage $msg) {
-            $msg = json_decode($msg->getBody())->message;
-            fprintf(STDOUT, "<--Not Acknowledged-->\n");
-        };
-
-        $this->channel->confirm_select(false);
-        $this->channel->set_ack_handler($ackCallback);
-        $this->channel->set_nack_handler($nackCallback);
-
         $body = json_encode(['message' => 'Hello, world!']);
         $message = new AMQPMessage($body, [
             'content_type' => 'application/json',
             'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT
         ]);
 
-        self::$count++;
-        $message->delivery_info['delivery_tag'] = self::$count;
-        $this->channel->basic_publish($message, 'app.hello');
-        $this->channel->wait_for_pending_acks();
+        app(AMQPService::class)->publish($message, 'app.hello');
     }
 }

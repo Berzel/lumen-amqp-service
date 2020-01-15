@@ -8,12 +8,26 @@ use PhpAmqpLib\Message\AMQPMessage;
 class AMQPService
 {
     private AMQPSocketConnection $connection;
+    private $pubChannel;
+    private $subChannel;
 
     public static $count = 0;
 
     public function __construct()
     {
         $this->connect();
+        $this->pubChannel = $this->connection->channel();
+        $this->subChannel = $this->connection->channel();
+    }
+
+    public function getPubChannel()
+    {
+        return $this->pubChannel;
+    }
+
+    public function getSubChannel()
+    {
+        return $this->subChannel;
     }
 
     public function channel($id = null)
@@ -41,22 +55,9 @@ class AMQPService
 
     public function boot()
     {
-        $pubChannel = app('pub-channel');
-
-        $exchanges = config('rabbit.exchanges');
-        foreach ($exchanges as $key => $exchange) {
-            $pubChannel->exchange_declare($exchange['name'], $exchange['type'], false, true, false);
-        }
-
-        $queues = config('rabbit.queues');
-        foreach ($queues as $key => $queue) {
-            $pubChannel->queue_declare($queue['name'], false, true, false, false);
-        }
-
-        $bindings = config('rabbit.bindings');
-        foreach ($bindings as $key => $binding) {
-            $pubChannel->queue_bind($binding['queue'], $binding['exchange']);
-        }
+        $this->declareExchange();
+        $this->declareQueue();
+        $this->bindQueue();
 
         $ackCallback = function (AMQPMessage $msg) {
             # Code...
@@ -66,18 +67,54 @@ class AMQPService
             $this->publish($msg, $msg->delivery_info['delivery_exchange']);
         };
 
-        $pubChannel->confirm_select(false);
-        $pubChannel->set_ack_handler($ackCallback);
-        $pubChannel->set_nack_handler($nackCallback);
+        $this->pubChannel->confirm_select(false);
+        $this->pubChannel->set_ack_handler($ackCallback);
+        $this->pubChannel->set_nack_handler($nackCallback);
+    }
+
+    public function bindQueue()
+    {
+        $bindings = config('rabbit.bindings');
+        foreach ($bindings as $key => $binding) {
+            $this->pubChannel->queue_bind($binding['queue'], $binding['exchange']);
+        }
+    }
+
+    public function declareQueue()
+    {
+        $queues = config('rabbit.queues');
+        foreach ($queues as $key => $queue) {
+            $this->pubChannel->queue_declare($queue['name'], false, true, false, false);
+        }
+    }
+
+    public function declareExchange()
+    {
+        $exchanges = config('rabbit.exchanges');
+        foreach ($exchanges as $key => $exchange) {
+            $this->pubChannel->exchange_declare($exchange['name'], $exchange['type'], false, true, false);
+        }
     }
 
     public function publish(AMQPMessage $message, $exchange)
     {
         self::$count++;
-        $pubChannel = app('pub-channel');
         $message->delivery_info['delivery_tag'] = self::$count;
         $message->delivery_info['delivery_exchange'] = $exchange;
-        $pubChannel->basic_publish($message, $exchange);
-        $pubChannel->wait_for_pending_acks();
+        $this->pubChannel->basic_publish($message, $exchange);
+        $this->pubChannel->wait_for_pending_acks();
+    }
+
+    public function consume()
+    {
+        $consumes = config('rabbit.consumes');
+
+        foreach ($consumes as $key => $consume) {
+            $this->subChannel->basic_consume($consume['queue'], $consume['tag'], false, false, false, false, $consume['callback']);
+        }
+
+        while ($this->subChannel->is_consuming()) {
+            $this->subChannel->wait();
+        }
     }
 }

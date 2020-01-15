@@ -21,11 +21,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton('pub-channel', function () {
-            return app('amqp')->channel();
+            return app('amqp')->getPubChannel();
         });
 
         $this->app->singleton('sub-channel', function () {
-            return app('amqp')->channel();
+            return app('amqp')->getSubChannel();
         });
     }
 

@@ -2,10 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\AMQPService;
 use Illuminate\Console\Command;
-use PhpAmqpLib\Exchange\AMQPExchangeType;
-use PhpAmqpLib\Message\AMQPMessage;
 
 class Amqp extends Command
 {
@@ -40,16 +37,6 @@ class Amqp extends Command
      */
     public function handle()
     {
-        $subChannel = app('sub-channel');
-
-        $consumes = config('rabbit.consumes');
-
-        foreach ($consumes as $key => $consume) {
-            $subChannel->basic_consume($consume['queue'], $consume['tag'], false, false, false, false, $consume['callback']);
-        }
-
-        while ($subChannel->is_consuming()) {
-            $subChannel->wait();
-        }
+        app('amqp')->consume();
     }
 }

@@ -58,11 +58,16 @@ class AMQPService
         $this->declareExchange();
         $this->declareQueue();
         $this->bindQueue();
+        $this->confirmMode();
+    }
 
+    public function confirmMode()
+    {
         $ackCallback = function (AMQPMessage $msg) {
             # Code...
         };
 
+        // republish the message if it was nacked
         $nackCallback = function (AMQPMessage $msg) {
             $this->publish($msg, $msg->delivery_info['delivery_exchange']);
         };
@@ -101,6 +106,7 @@ class AMQPService
         self::$count++;
         $message->delivery_info['delivery_tag'] = self::$count;
         $message->delivery_info['delivery_exchange'] = $exchange;
+        // Please node the basic publish methos of the original phpamqplib was modified to allow tracking messages using the message delivery tag
         $this->pubChannel->basic_publish($message, $exchange);
         $this->pubChannel->wait_for_pending_acks();
     }
